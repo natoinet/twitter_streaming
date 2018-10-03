@@ -1,0 +1,13 @@
+[{
+    "model": "application.tucatapplication",
+    "pk": 2,
+    "fields": {
+        "created": "2018-09-13T22:31:42.863Z",
+        "modified": "2018-09-13T22:31:42.863Z",
+        "name": "Twitter Streaming",
+        "command_name": "twitter_streaming",
+        "package_name": "tucat.twitter_streaming",
+        "task_id": "",
+        "status": "s"
+    }
+}]
