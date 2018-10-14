@@ -15,6 +15,8 @@ Clone the Twitter list streaming plugin to the Tucat volume
 -------------
 Inside the Tucat folder, clone the twitter_streaming repo
 
+  # cd tucat
+  
   # git clone https://github.com/natoinet/twitter_streaming
 
   # sudo docker cp tucat/twitter_streaming `doc_tucat`:/opt/services/djangoapp/tucat/twitter_streaming/
