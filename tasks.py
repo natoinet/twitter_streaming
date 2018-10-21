@@ -1,20 +1,27 @@
 from __future__ import absolute_import
 
 import logging
+import subprocess
+from datetime import datetime
+from pathlib import Path
+import re
+
+from django.conf import settings
+from django.core.files import File
+from django_celery_beat.models import PeriodicTask
+
+from celery import task
+from celery.app.task import Task
+
+from pymongo import MongoClient
 
 import requests
 from requests_oauthlib import OAuth1
 
-from celery import task
-from celery.app.task import Task
-from pymongo import MongoClient
-from django.conf import settings
-
-from django_celery_beat.models import PeriodicTask
-
+from tucat.core.base import add_dt_to_json
 from tucat.core.token import get_app_token, get_users_token
 from tucat.application.models import TucatApplication
-from tucat.twitter_streaming.models import TwitterListStreaming
+from tucat.twitter_streaming.models import TwitterListStreaming, TwitterListStreamingExport
 
 logger = logging.getLogger('twitter_streaming')
 
@@ -46,19 +53,21 @@ def do_run(obj_pk):
     try:
         logger.info('do_run streaming')
 
-        #one_app = TucatApplication.objects.get(package_name=__package__)
+        db_name = __package__.replace('.', '_')
         one_app = TucatApplication.objects.get(pk=obj_pk)
         tucat_elements = TwitterListStreaming.objects.filter(application_id=one_app.id, is_enabled=True)
 
         for element in tucat_elements:
             logger.info('do_run streaming %s %s', element.owner_name, element.list_name)
             tw_streaming(owner_name=element.owner_name, list_name=element.list_name)
+            #colname = get_collection_name(element.owner_name, element.list_name)
+            #add_dt_to_mongo( db_name, colname, ['created_at'] )
 
-        one_app.update(status='c')
+        one_app.update(status='r')
 
         logger.info('do_run streaming success')
     except Exception as e:
-        logger.error('do_run exception %s', e)
+        logger.exception('do_run exception %s', e)
         one_app.update(status='f')
         periodictask = PeriodicTask.objects.get(name=__package__)
         periodictask.enabled = False
@@ -69,14 +78,14 @@ def do_run(obj_pk):
 
 def tw_streaming(owner_name='', list_name=''):
     logger.info('tw_streaming start %s %s', owner_name, list_name)
-    
+
     app_token = get_app_token('twitter')
     users_token = get_users_token ('twitter')
 
-    colname = owner_name + '-' + list_name
+    colname = get_collection_name(owner_name, list_name)
     #oauth = OAuth1(CONSUMER['key'], CONSUMER['secret'], TOKEN['key'], TOKEN['secret'], signature_type='auth_header')
     oauth = OAuth1(app_token['key'], app_token['secret'], users_token[0]['key'], users_token[0]['secret'], signature_type='auth_header')
-    
+
     url = 'https://api.twitter.com/1.1/lists/statuses.json'
     parameters = {'owner_screen_name' : owner_name, 'slug' : list_name, 'include_rts' : '1'}
 
@@ -93,6 +102,9 @@ def tw_streaming(owner_name='', list_name=''):
 
     _todb(colname, request)
 
+def get_collection_name(owner_name, list_name):
+    return owner_name + '-' + list_name
+
 def get_since_id(colname):
     db_name = __package__.replace('.', '_')
     logger.debug('filename:%s | db: %s', __file__, db_name)
@@ -107,17 +119,108 @@ def get_since_id(colname):
     return since_id
 
 def _todb(colname, request):
-    
+
     if (request.status_code != 200):
         logger.critical('StreamingApi.getJson status code %s \nrequest %s',
             request.status_code, request)
         raise Exception("Status code is not 200: ", request.status_code)
     else:
         db_name = __package__.replace('.', '_')
-        logger.debug('filename:%s | db: %s | collection:%s | json: %s', __file__, db_name, colname, request.json())
+        logger.debug('filename:%s | db: %s | collection:%s | original json: %s', __file__, db_name, colname, request.json())
         db = MongoClient(settings.MONGO_CLIENT)[db_name]
         json_list = request.json()
+
+        logger.debug('before for')
+
         # Duplicate removal
         for one_json in json_list:
+            logger.debug('in for')
             if (db[colname].find({'id' : one_json['id']}).count() == 0):
+                logger.debug('in if')
+                one_json = add_dt_to_json(one_json, ['created_at'])
+                logger.debug('onejson')
                 db[colname].insert(one_json)
+                logger.debug('filename:%s | db: %s | collection:%s | modified json: %s', __file__, db_name, colname, one_json)
+
+@task(bind=True)
+def do_run_export(self, obj_pk):
+    logger.info('do_run_export')
+
+    try:
+        export = TwitterListStreamingExport.objects.get(pk=obj_pk)
+
+        output = None
+        db_name = __package__.replace('.', '_')
+        #out_folder = str(Path(__file__).parents[1] / 'media/output')
+        out_folder = str(settings.APPS_DIR.path('media')) + '/output'
+        out_file = output
+        export.update(self.request.id, 'r')
+
+        path = str(Path(__file__).parent / 'export') + '/'
+        #export_type = ExportationType.objects.get(pk=export_type_id)
+        logger.info('do_run_export %s %s %s to %s', export.export_format, export.before, export.after, path)
+
+        if (export.before is None) and (export.after is None):
+            if (export.export_format.format is 'json'):
+                output = subprocess.check_output([path + export.export_format.format + '-twitter_streaming.sh', db_name, str(export.list), path, out_folder])
+            else:
+                output = subprocess.check_output([path + export.export_format.format + '-twitter_streaming.sh', db_name, str(export.list), path, out_folder, export.export_format.fields])
+        else:
+            epoch_before = '0'
+            epoch_after = '0'
+
+            if export.before is not None :
+                epoch_before = export.before.strftime('%s') + '000'
+            if export.after is not None :
+                epoch_after = export.after.strftime('%s') + '000'
+
+            if (export.export_format.format is 'json'):
+                output = subprocess.check_output([path + export.export_format.format + '-twitter_streaming-after.sh', db_name, str(export.list), epoch_before, epoch_after, path, out_folder])
+            else:
+                #subprocess.call([path + 'friendsgraph-lasttweet.sh', str(export.collection), epoch_lt, path])
+                output = subprocess.check_output([path + export.export_format.format + '-twitter_streaming-after.sh', db_name, str(export.list), epoch_before, epoch_after, path, out_folder, export.export_format.fields])
+
+        logger.info('do_run_export output %s', output)
+        #export.link_file = output.decode("utf-8")
+
+        result = output.decode("utf-8")
+        out_file = re.findall(r"\S+", result)[1]
+        logger.debug('do_run_export out_file %s', out_file)
+
+        with open(out_folder  + '/' + out_file, 'r') as f:
+            export.file = File(f)
+            export.save()
+
+        export.update(self.request.id, 'c')
+
+    except Exception as e:
+        logger.exception(e)
+        export.update(self.request.id, 'f')
+
+def do_stop_export(obj_pk):
+    logger.info('do_stop_export')
+    export = TwitterListStreamingExport.objects.get(pk=obj_pk)
+
+    try:
+        logger.info('do_stop_export locked task_id %s', export.task_id)
+        app.control.revoke(export.task_id, terminate=True)
+        logger.info('do_stop_export: Task revoked')
+
+        export.update('', 's')
+
+    except Exception as e:
+        logger.exception(e)
+
+def do_export_streaming_cmd(action=None, obj=None):
+    logger.info('do_export_cmd %s %s %s %s %s %s %s', action, obj, obj.export_format, obj.export_format.fields, obj.list, obj.before, obj.after)
+
+    if (action is 'run'):
+        logger.info('do_export_cmd running')
+        do_run_export.apply_async((obj.pk,))
+
+#        do_run_export.apply_async(kwargs={'export_type_id': obj.export_type.pk, 'collection': obj.collections.pk, 'last_tweet' : obj.last_tweet})
+    elif (action is 'stop'):
+        logger.info('do_export_cmd stopping')
+        do_stop_export(obj.pk)
+    else:
+        logger.info('Unknown command')
