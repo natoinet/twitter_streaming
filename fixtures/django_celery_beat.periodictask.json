@@ -1,0 +1,26 @@
+[
+{
+    "model": "django_celery_beat.periodictask",
+    "pk": 2,
+    "fields": {
+        "name": "tucat.twitter_streaming",
+        "task": "tucat.twitter_streaming.tasks.do_run",
+        "interval": 1,
+        "crontab": null,
+        "solar": null,
+        "args": "[2]",
+        "kwargs": "{}",
+        "queue": null,
+        "exchange": null,
+        "routing_key": null,
+        "expires": null,
+        "one_off": false,
+        "start_time": null,
+        "enabled": false,
+        "last_run_at": null,
+        "total_run_count": 3455,
+        "date_changed": "2018-10-17T19:20:49.440Z",
+        "description": ""
+    }
+}
+]

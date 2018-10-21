@@ -1,0 +1,11 @@
+[
+{
+    "model": "twitter_streaming.exportationformat",
+    "pk": 1,
+    "fields": {
+        "name": "json",
+        "format": "json",
+        "fields": null
+    }
+}
+]
