@@ -10,7 +10,7 @@ BEFORE=$4
 AFTER=$5
 
 #echo "dbname:$DBNAME colname:$COLNAME outfile:$OUTPUT_FILES before:$BEFORE after:$AFTER mongohost:$MONGOHOST mongouname:$MONGO_INITDB_ROOT_USERNAME mongopwd:$MONGO_INITDB_ROOT_PASSWORD"
-QUERY="{following : {\$ne : [ ]}, dt_created_at : { \$gte : new Date($BEFORE), \$lte : new Date($AFTER) }}"
+QUERY="{following : { \$ne : [ ]}, dt_created_at : { \$gte : new Date($AFTER), \$lte : new Date($BEFORE) } }"
 
 mongoexport --quiet --host=$MONGOHOST --username=$MONGO_INITDB_ROOT_USERNAME --password=$MONGO_INITDB_ROOT_PASSWORD --authenticationDatabase=admin --db=$DBNAME --collection=$COLNAME --query="$QUERY" --type=json --out="$OUTPUT_FILES/twitter_streaming-$COLNAME.json"
 
