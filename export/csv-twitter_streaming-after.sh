@@ -5,12 +5,14 @@
 
 DBNAME=$1
 COLNAME=$2
-EXP_PATH=$3
-OUTPUT_FILES=$4
-FIELDS=$5
-BEFORE=$6
-AFTER=$7
+OUTPUT_FILES=$3
+FIELDS=$4
+BEFORE=$5
+AFTER=$6
 
+#echo "dbname:$DBNAME colname:$COLNAME outfile:$OUTPUT_FILES fields:$FIELDS mongohost:$MONGOHOST mongouname:$MONGO_INITDB_ROOT_USERNAME mongopwd:$MONGO_INITDB_ROOT_PASSWORD"
 QUERY="{following : {\$ne : [ ]}, dt_created_at : { \$gte : new Date($BEFORE), \$lte : new Date($AFTER) }}"
 
-mongoexport --quiet --host $MONGOHOST --username $MONGO_INITDB_ROOT_USERNAME --password $MONGO_INITDB_ROOT_PASSWORD --authenticationDatabase admin --db $DBNAME --collection $COLNAME --fields $MONGO_FIELDS_NODE --query "$QUERY" --csv -o "$OUTPUT_FILES/archivo-node-$COLNAME.csv"
+mongoexport --quiet --host=$MONGOHOST --username=$MONGO_INITDB_ROOT_USERNAME --password=$MONGO_INITDB_ROOT_PASSWORD --authenticationDatabase=admin --db=$DBNAME --collection=$COLNAME --fields=$MONGO_FIELDS_NODE --query="$QUERY" --type=csv -out="$OUTPUT_FILES/archivo-node-$COLNAME.csv"
+
+echo "archivo-node-$COLNAME.csv"

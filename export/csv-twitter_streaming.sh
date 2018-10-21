@@ -5,8 +5,10 @@
 
 DBNAME=$1
 COLNAME=$2
-EXP_PATH=$3
-OUTPUT_FILES=$4
-FIELDS=$5
+OUTPUT_FILES=$3
+FIELDS=$4
 
-mongoexport --quiet --host $MONGOHOST --username $MONGO_INITDB_ROOT_USERNAME --password $MONGO_INITDB_ROOT_PASSWORD --authenticationDatabase admin --db $DBNAME --collection $COLNAME --fields $MONGO_FIELDS_NODE --csv -o "$OUTPUT_FILES/archivo-node-$COLNAME.csv"
+#echo "dbname:$DBNAME colname:$COLNAME outfile:$OUTPUT_FILES fields:$FIELDS mongohost:$MONGOHOST mongouname:$MONGO_INITDB_ROOT_USERNAME mongopwd:$MONGO_INITDB_ROOT_PASSWORD"
+mongoexport --quiet --host=$MONGOHOST --username=$MONGO_INITDB_ROOT_USERNAME --password=$MONGO_INITDB_ROOT_PASSWORD --authenticationDatabase=admin --db=$DBNAME --collection=$COLNAME --fields=$MONGO_FIELDS_NODE --type=csv --out="$OUTPUT_FILES/archivo-node-$COLNAME.csv"
+
+echo "archivo-node-$COLNAME.csv"

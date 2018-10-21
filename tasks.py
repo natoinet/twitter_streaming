@@ -67,7 +67,7 @@ def do_run(obj_pk):
 
         logger.info('do_run streaming success')
     except Exception as e:
-        logger.exception('do_run exception %s', e)
+        logger.exception(e)
         one_app.update(status='f')
         periodictask = PeriodicTask.objects.get(name=__package__)
         periodictask.enabled = False
@@ -132,13 +132,11 @@ def _todb(colname, request):
 
         logger.debug('before for')
 
-        # Duplicate removal
         for one_json in json_list:
-            logger.debug('in for')
+            # Duplicate removal
             if (db[colname].find({'id' : one_json['id']}).count() == 0):
-                logger.debug('in if')
+                # For export date filter
                 one_json = add_dt_to_json(one_json, ['created_at'])
-                logger.debug('onejson')
                 db[colname].insert(one_json)
                 logger.debug('filename:%s | db: %s | collection:%s | modified json: %s', __file__, db_name, colname, one_json)
 
@@ -157,14 +155,17 @@ def do_run_export(self, obj_pk):
         export.update(self.request.id, 'r')
 
         path = str(Path(__file__).parent / 'export') + '/'
+
+        colname = get_collection_name(export.list.owner_name, export.list.list_name)
+
         #export_type = ExportationType.objects.get(pk=export_type_id)
         logger.info('do_run_export %s %s %s to %s', export.export_format, export.before, export.after, path)
 
-        if (export.before is None) and (export.after is None):
-            if (export.export_format.format is 'json'):
-                output = subprocess.check_output([path + export.export_format.format + '-twitter_streaming.sh', db_name, str(export.list), path, out_folder])
+        if export.before is None and export.after is None :
+            if export.export_format.format == 'json':
+                output = subprocess.check_output([path + export.export_format.format + '-twitter_streaming.sh', db_name, colname , out_folder])
             else:
-                output = subprocess.check_output([path + export.export_format.format + '-twitter_streaming.sh', db_name, str(export.list), path, out_folder, export.export_format.fields])
+                output = subprocess.check_output([path + export.export_format.format + '-twitter_streaming.sh', db_name, colname, out_folder, export.export_format.fields])
         else:
             epoch_before = '0'
             epoch_after = '0'
@@ -174,18 +175,19 @@ def do_run_export(self, obj_pk):
             if export.after is not None :
                 epoch_after = export.after.strftime('%s') + '000'
 
-            if (export.export_format.format is 'json'):
-                output = subprocess.check_output([path + export.export_format.format + '-twitter_streaming-after.sh', db_name, str(export.list), epoch_before, epoch_after, path, out_folder])
+            if (export.export_format.format == 'json'):
+                output = subprocess.check_output([path + export.export_format.format + '-twitter_streaming-after.sh', db_name, colname, out_folder, epoch_before, epoch_after])
             else:
                 #subprocess.call([path + 'friendsgraph-lasttweet.sh', str(export.collection), epoch_lt, path])
-                output = subprocess.check_output([path + export.export_format.format + '-twitter_streaming-after.sh', db_name, str(export.list), epoch_before, epoch_after, path, out_folder, export.export_format.fields])
+                output = subprocess.check_output([path + export.export_format.format + '-twitter_streaming-after.sh', db_name, colname, out_folder, export.export_format.fields, epoch_before, epoch_after])
 
         logger.info('do_run_export output %s', output)
         #export.link_file = output.decode("utf-8")
 
         result = output.decode("utf-8")
-        out_file = re.findall(r"\S+", result)[1]
-        logger.debug('do_run_export out_file %s', out_file)
+        logger.debug('do_run_export out_file %s', result)
+        out_file = re.findall(r"\S+", result)[0]
+        logger.debug('do_run_export out_file %s', result)
 
         with open(out_folder  + '/' + out_file, 'r') as f:
             export.file = File(f)

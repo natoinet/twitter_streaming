@@ -5,7 +5,9 @@
 
 DBNAME=$1
 COLNAME=$2
-EXP_PATH=$3
-OUTPUT_FILES=$4
+OUTPUT_FILES=$3
 
-mongoexport --quiet --host $MONGOHOST --username $MONGO_INITDB_ROOT_USERNAME --password $MONGO_INITDB_ROOT_PASSWORD --authenticationDatabase admin --db $DBNAME --collection $COLNAME --json --out "$OUTPUT_FILES/twitter_streaming-$COLNAME.json"
+#echo "dbname:$DBNAME colname:$COLNAME outfile:$OUTPUT_FILES mongohost:$MONGOHOST mongouname:$MONGO_INITDB_ROOT_USERNAME mongopwd:$MONGO_INITDB_ROOT_PASSWORD"
+mongoexport --quiet --host=$MONGOHOST --username=$MONGO_INITDB_ROOT_USERNAME --password=$MONGO_INITDB_ROOT_PASSWORD --authenticationDatabase=admin --db=$DBNAME --collection=$COLNAME --type=json --out="$OUTPUT_FILES/twitter_streaming-$COLNAME.json"
+
+echo "twitter_streaming-$COLNAME.json"
