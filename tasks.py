@@ -168,7 +168,7 @@ def do_run_export(self, obj_pk):
                 output = subprocess.check_output([path + export.export_format.format + '-twitter_streaming.sh', db_name, colname, out_folder, export.export_format.fields])
         else:
             epoch_before = '0'
-            epoch_after = '0'
+            epoch_after = datetime.utcnow().strftime('%s') + '000'
 
             if export.before is not None :
                 epoch_before = export.before.strftime('%s') + '000'
