@@ -13,12 +13,10 @@ from django_celery_beat.models import PeriodicTask
 from celery import task
 from celery.app.task import Task
 
-from pymongo import MongoClient
-
 import requests
 from requests_oauthlib import OAuth1
 
-from tucat.core.base import add_dt_to_json
+from tucat.core.base import add_dt_to_json, get_collection
 from tucat.core.token import get_app_token, get_users_token
 from tucat.application.models import TucatApplication
 from tucat.twitter_streaming.models import TwitterListStreaming, TwitterListStreamingExport
@@ -109,10 +107,10 @@ def get_since_id(colname):
     db_name = __package__.replace('.', '_')
     logger.debug('filename:%s | db: %s', __file__, db_name)
 
-    db = MongoClient(settings.MONGO_CLIENT)[db_name]
+    db_collection = get_collection(db_name, colname)
 
-    if (db[colname].find().count() > 0):
-        since_id = db[colname].find().limit(1).sort([('$natural',1)])[0]['id']
+    if (db_collection.find().count() > 0):
+        since_id = db_collection.find().limit(1).sort([('$natural',1)])[0]['id']
     else:
         since_id = -1
 
@@ -127,17 +125,17 @@ def _todb(colname, request):
     else:
         db_name = __package__.replace('.', '_')
         logger.debug('filename:%s | db: %s | collection:%s | original json: %s', __file__, db_name, colname, request.json())
-        db = MongoClient(settings.MONGO_CLIENT)[db_name]
+        db_collection = get_collection(db_name, colname)
         json_list = request.json()
 
         logger.debug('before for')
 
         for one_json in json_list:
             # Duplicate removal
-            if (db[colname].find({'id' : one_json['id']}).count() == 0):
+            if (db_collection.find({'id' : one_json['id']}).count() == 0):
                 # For export date filter
                 one_json = add_dt_to_json(one_json, ['created_at'])
-                db[colname].insert(one_json)
+                db_collection.insert(one_json)
                 logger.debug('filename:%s | db: %s | collection:%s | modified json: %s', __file__, db_name, colname, one_json)
 
 @task(bind=True)
